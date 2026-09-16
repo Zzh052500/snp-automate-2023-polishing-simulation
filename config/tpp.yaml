@@ -1,6 +1,7 @@
 mesh_modifiers:
   - name: RansacPlaneProjection
     inlier_threshold: 0.001
+    distance_threshold: 0.01
     max_iterations: 1000
   - name: ROISelection
     max_cluster_size: 1000000000
