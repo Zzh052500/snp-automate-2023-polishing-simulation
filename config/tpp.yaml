@@ -12,8 +12,8 @@ tool_path_planner:
     service_name: get_located_vector
   origin_generator:
     name: Centroid
-  line_spacing: 0.029999999999999999
-  point_spacing: 0.029999999999999999
+  line_spacing: 0.08
+  point_spacing: 0.08
   min_hole_size: 0.10000000000000001
   min_segment_size: 0.10000000000000001
   bidirectional: true
