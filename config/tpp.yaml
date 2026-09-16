@@ -1,9 +1,9 @@
 mesh_modifiers:
   - name: ROISelection
     max_cluster_size: 1000000000
-    min_cluster_size: 100
-    cluster_tolerance: 0.10000000000000001
-    plane_distance_threshold: 0.10000000000000001
+    min_cluster_size: 5
+    cluster_tolerance: 0.012
+    plane_distance_threshold: 0.012
   - name: NormalsFromMeshFaces
 tool_path_planner:
   name: PlaneSlicerLegacy
@@ -12,8 +12,8 @@ tool_path_planner:
     service_name: get_located_vector
   origin_generator:
     name: Centroid
-  line_spacing: 0.029999999999999999
-  point_spacing: 0.029999999999999999
+  line_spacing: 0.05
+  point_spacing: 0.05
   min_hole_size: 0.10000000000000001
   min_segment_size: 0.10000000000000001
   bidirectional: true
