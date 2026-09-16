@@ -1,14 +1,9 @@
 mesh_modifiers:
-  - name: RansacPlaneProjection
-    inlier_threshold: 0.001
-    distance_threshold: 0.01
-    max_iterations: 1000
-    min_vertices: 3
   - name: ROISelection
     max_cluster_size: 1000000000
-    min_cluster_size: 5
-    cluster_tolerance: 0.03
-    plane_distance_threshold: 0.03
+    min_cluster_size: 10
+    cluster_tolerance: 0.02
+    plane_distance_threshold: 0.02
   - name: NormalsFromMeshFaces
 tool_path_planner:
   name: PlaneSlicerLegacy
