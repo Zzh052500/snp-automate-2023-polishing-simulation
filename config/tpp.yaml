@@ -2,8 +2,8 @@ mesh_modifiers:
   - name: ROISelection
     max_cluster_size: 1000000000
     min_cluster_size: 5
-    cluster_tolerance: 0.01
-    plane_distance_threshold: 0.01
+    cluster_tolerance: 0.03
+    plane_distance_threshold: 0.03
   - name: NormalsFromMeshFaces
 tool_path_planner:
   name: PlaneSlicerLegacy
