@@ -148,17 +148,79 @@ URDF 导出 → 正运动学 → 各连杆网格在 `base_link` 系的世界点�
 关于可达性边界（供以后调工件位置参考）：这台 CR12A 在「相机朝下」姿态下，
 末端 X 越远能压得越低 —— X ≈ 0.86 m 时 Z 最低 0.52 m；0.90 m 时约 0.45 m；0.92 m 时约 0.42 m。**再远就够不着了。**
 
+#### 3.2 修正：扫描执行被控制器拒收（上游 nanosec 无符号下溢）
+
+碰撞修好之后，点 `Execute Scan Motion` 报：
+
+```
+Action 'joint_trajectory_position_controller/follow_joint_trajectory' failed:
+'goal rejected by server'
+```
+
+控制器日志：
+
+```
+[ERROR] Time between points 4 and 5 is not strictly increasing,
+        it is 9.094967 and 6.000000 respectively
+```
+
+**根因不在本仓库，在 SNP 的 BT 节点里。**
+`snp_application/src/bt/extract_approach_process_departure_trajectories_node.cpp`
+的切片函数把子轨迹的时间戳重定基到起点时，用的是：
+
+```cpp
+// Offset the time from start
+pt.time_from_start.sec     -= start->time_from_start.sec;
+pt.time_from_start.nanosec -= start->time_from_start.nanosec;   // ← nanosec 是 uint32
+```
+
+`builtin_interfaces::msg::Duration` 的 `nanosec` 是 **`uint32`**。只要某点的 `nanosec`
+小于该子轨迹**起点**的 `nanosec`，这行就**无符号回绕**（+2³²），而 `sec` 又**不会借位**，
+于是时间戳大幅倒退，被 JTC 的 `validate_trajectory_msg()` 拦下。
+
+三个子轨迹的起点不同，所以受害程度也不同：
+
+| 子轨迹 | 切片范围 | 起点 | 时间戳 |
+|---|---|---|---|
+| approach | points[0..1] | P1，`nanosec=0` | **正常**（所以第一个 goal 能过） |
+| process | points[1..n-1] | P2，`nanosec=500975835` | P5/P6 回绕 → 被拒 |
+| departure | points[n-2..n-1] | P9，`nanosec=900975835` | P10 回绕 → 变 6.60 s（本该 2.31 s），单调所以不报错，但会白等 |
+
+原版 HC10 的时间戳就是这套小数（`0 / 2.500976 / 3.700976 / … / 13.209768`），
+**所以这个 bug 一直存在，只是这条扫描路径此前从没跑到过切片这一步**；
+换成 CR12A 后第一次真正执行扫描才暴露出来。
+
+**修法**：把 `config/scan_traj.yaml` 的时间戳全部改成**整秒**（`nanosec: 0`）。
+起点 `nanosec` 恒为 0，任何点减它都不会下溢。同时保持总时长基本不变：
+
+```
+P1=0s，P2..P9 每步 1s，P10=13s（总 13s，原来 13.21s）
+```
+
+| 段 | Δt | 最大关节变化 | 峰值速度 | 占关节限速 |
+|---|---|---|---|---|
+| P1→P2 | 3 s | 90.0° | 30.0 °/s | 13.5% |
+| P2→P9 | 各 1 s | ≤ 14.2° | ≤ 14.2 °/s | ≤ 6.4% |
+| P9→P10 | 3 s | 90.2° | 30.1 °/s | 13.5% |
+
+全程最紧也只到关节限速的 13.5%，余量充足。**关节角一个都没动，所以 3.1 节的碰撞复核结论仍然成立。**
+
+> 复核方法：用 Python 完全复刻上面那两行 C++ 的 uint32 语义，
+> 对 `approach/process/departure` 分别重定基再检查单调性。改时间戳后建议重跑一次。
+> 后续只要轨迹里出现小数秒且相邻点 nanosec 会「回绕」，这个问题就会重现 ——
+> **保持整秒是最省事的规避方式。**
+
 ### 4. 节拍调快
 
 | 项 | 原来 | 现在 |
 |---|---|---|
-| 扫描轨迹总时长 | ~60 s | **13.2 s** |
+| 扫描轨迹总时长 | ~60 s | **13.0 s** |
 | 打磨 TCP 平移速度 | 0.05 m/s | **0.15 m/s** |
 | 打磨 TCP 平移加速度 | 0.10 m/s² | **0.50 m/s²** |
 | 打磨 TCP 旋转速度 | 1.571 rad/s | 3.14 rad/s |
 | 打磨 TCP 旋转加速度 | 3.14 rad/s² | 6.28 rad/s² |
 
-扫描时长是按关节速度上限的 25%（下限 1.2 s）自动分配的，比原来快约 4.5 倍。
+扫描时长按关节速度上限分配（单步 1 s，见 3.2 节为何必须用整秒），比原来快约 4.5 倍。
 
 打磨速度做成了 launch 参数，不用改文件就能调：
 
