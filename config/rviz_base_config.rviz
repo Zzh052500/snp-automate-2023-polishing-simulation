@@ -83,32 +83,32 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        link_1_s:
+        Link1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_2_l:
+        Link2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_3_u:
+        Link3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_4_r:
+        Link4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_5_b:
+        Link5:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_6_t:
+        Link6:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -155,17 +155,17 @@ Visualization Manager:
           Value: true
         floor:
           Value: true
-        link_1_s:
+        Link1:
           Value: true
-        link_2_l:
+        Link2:
           Value: true
-        link_3_u:
+        Link3:
           Value: true
-        link_4_r:
+        Link4:
           Value: true
-        link_5_b:
+        Link5:
           Value: true
-        link_6_t:
+        Link6:
           Value: true
         sand_tcp:
           Value: true
@@ -189,12 +189,12 @@ Visualization Manager:
               base_link:
                 base:
                   {}
-                link_1_s:
-                  link_2_l:
-                    link_3_u:
-                      link_4_r:
-                        link_5_b:
-                          link_6_t:
+                Link1:
+                  Link2:
+                    Link3:
+                      Link4:
+                        Link5:
+                          Link6:
                             tool0:
                               camera_color_optical_frame:
                                 {}

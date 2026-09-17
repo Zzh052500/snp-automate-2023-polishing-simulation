@@ -12,6 +12,14 @@
   <arg name="robot_description" default="$(command 'xacro $(var robot_description_file) ros_distro:=$(env ROS_DISTRO)')"/>
   <arg name="robot_description_semantic" default="$(command 'cat $(find-pkg-share snp_automate_2023)/config/workcell.srdf')"/>
   <arg name="reference_frame" default="base_link"/>
+  <!-- 打磨进给速度/加速度（TCP），规划器用于给刀具路径计时。
+       调快:   ros2 launch ... max_translational_vel:=0.25
+       调回保守: ... max_translational_vel:=0.05
+       注意: 提得过高可能让 Descartes 求解失败（LadderGraphSolver failed to build graph） -->
+  <arg name="max_translational_vel" default="0.15" description="TCP 平移速度上限 (m/s)，原默认 0.05"/>
+  <arg name="max_translational_acc" default="0.50" description="TCP 平移加速度上限 (m/s^2)，原默认 0.10"/>
+  <arg name="max_rotational_vel" default="3.14" description="TCP 旋转速度上限 (rad/s)，原默认 1.571"/>
+  <arg name="max_rotational_acc" default="6.28" description="TCP 旋转加速度上限 (rad/s^2)，原默认 3.14"/>
   <!-- Set the default name of the follow joint trajectory action depending on whether the robot is simulated (i.e., ros2_control) or real hardware is being used -->
   <arg name="follow_joint_trajectory_action" default="joint_trajectory_position_controller/follow_joint_trajectory" if="$(var sim_robot)"/>
   <arg name="follow_joint_trajectory_action" default="joint_trajectory_controller/follow_joint_trajectory" unless="$(var sim_robot)"/>
@@ -51,11 +59,11 @@
     <!-- General -->
     <param name="follow_joint_trajectory_action" value="$(var follow_joint_trajectory_action)"/>
     <param name="freespace_motion_group" value="manipulator"/>
-    <param name="controller_joint_names" value="['joint_1_s', 'joint_2_l', 'joint_3_u', 'joint_4_r', 'joint_5_b', 'joint_6_t']"/>
+    <param name="controller_joint_names" value="['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6']"/>
     <param name="start_state_replacement_tolerance" value="$(eval 'radians(0.1)')"/>
     <!-- Home -->
-    <param name="home_state_joint_names" value="['joint_1_s', 'joint_2_l', 'joint_3_u', 'joint_4_r', 'joint_5_b', 'joint_6_t']"/>
-    <param name="home_state_joint_positions" value="[0.0, 0.0, 1.57, 0.0, 0.0, 0.785]"/>
+    <param name="home_state_joint_names" value="['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6']"/>
+    <param name="home_state_joint_positions" value="[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]"/>
     <!-- Frames -->
     <param name="reference_frame" value="$(var reference_frame)"/>
     <param name="tcp_frame" value="sand_tcp"/>
@@ -126,6 +134,11 @@
     <arg name="verbose" value="$(var verbose)"/>
     <arg name="scan_disabled_contact_links" value="$(var scan_disabled_contact_links)"/>
     <arg name="scan_reduced_contact_links" value="$(var scan_reduced_contact_links)"/>
+    <!-- 打磨速度/加速度：不传则用规划器内部的保守默认值（0.05 m/s / 0.1 m/s^2） -->
+    <arg name="max_translational_vel" value="$(var max_translational_vel)"/>
+    <arg name="max_translational_acc" value="$(var max_translational_acc)"/>
+    <arg name="max_rotational_vel" value="$(var max_rotational_vel)"/>
+    <arg name="max_rotational_acc" value="$(var max_rotational_acc)"/>
   </include>
 
   <group unless="$(var sim_robot)">

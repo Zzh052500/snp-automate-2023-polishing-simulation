@@ -2,7 +2,15 @@
 runtime/snp_home/.ros/
 runtime/snp_home/.cache/
 runtime/snp_home/.config/
+runtime/snp_home/.rviz2/
 runtime/**/*.log
+
+# Dobot CR12 官方原始 STL（本地保留，cr12/*.ply 由它导出）
+meshes/cr12_stl/
+
+# 网格中间产物
+meshes/part_scan.ply.backup
+meshes/part_scan_top_only.ply
 *.log
 *.mp4
 *.zip
