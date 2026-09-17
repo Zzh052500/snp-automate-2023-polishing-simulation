@@ -77,12 +77,12 @@
     <param name="ir_depth_trunc" value="0.9"/>
     <param name="ir_translation_filter_distance" value="0.1"/>
     <param name="ir_rotation_filter_distance" value="$(eval 'radians(5.0)')"/>
-    <param name="ir_min_x" value="0.61"/>
-    <param name="ir_min_y" value="-0.13"/>
-    <param name="ir_min_z" value="0.25"/>
-    <param name="ir_max_x" value="0.98"/>
-    <param name="ir_max_y" value="0.15"/>
-    <param name="ir_max_z" value="0.37"/>
+    <param name="ir_min_x" value="0.21"/>
+    <param name="ir_min_y" value="-0.45"/>
+    <param name="ir_min_z" value="0.0889"/>
+    <param name="ir_max_x" value="1.5"/>
+    <param name="ir_max_y" value="0.45"/>
+    <param name="ir_max_z" value="0.527"/>
     <param name="ir_live" value="false"/>
     <param name="ir_min_faces" value="3000"/>
     <param name="ir_normal_angle_tol" value="85.0"/>
