@@ -24,3 +24,4 @@ services:
       - ../config:/opt/snp_automate_2023/install/snp_automate_2023/share/snp_automate_2023/config:ro
       - ../launch:/opt/snp_automate_2023/install/snp_automate_2023/share/snp_automate_2023/launch:ro
       - ../meshes:/opt/snp_automate_2023/install/snp_automate_2023/share/snp_automate_2023/meshes:ro
+      - ../urdf:/opt/snp_automate_2023/install/snp_automate_2023/share/snp_automate_2023/urdf:ro

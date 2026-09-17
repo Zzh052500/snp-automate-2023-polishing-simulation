@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
-<robot name="motoman_hc10" xmlns:xacro="http://ros.org/wiki/xacro" xmlns:tesseract="https://github.com/tesseract-robotics/tesseract" tesseract:make_convex="true">
-  <xacro:include filename="$(find motoman_hc10_support)/urdf/hc10dt_macro.xacro" />
-  <xacro:motoman_hc10dt prefix=""/>
+<robot name="cr12_robot" xmlns:xacro="http://ros.org/wiki/xacro" xmlns:tesseract="https://github.com/tesseract-robotics/tesseract" tesseract:make_convex="true">
+  <xacro:include filename="cr12_macro.xacro" />
+  <xacro:dobot_cr12 prefix=""/>
 
   <xacro:include filename="$(find snp_automate_2023)/urdf/ros2_control.xacro"/>
   <xacro:snp_ros2_control name="snp_ros2_control" prefix=""/>
@@ -69,6 +69,7 @@
   <joint name="table_to_base" type="fixed">
     <parent link="table"/>
     <child link="base_link"/>
+    <!-- CR12 机械臂相对工作台的位置（可能需要后续微调） -->
     <origin xyz="-0.61 0 0.723" rpy="0 0 0"/>
   </joint>
 

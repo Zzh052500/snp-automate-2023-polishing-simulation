@@ -97,32 +97,32 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        link_1_s:
+        Link1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_2_l:
+        Link2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_3_u:
+        Link3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_4_r:
+        Link4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_5_b:
+        Link5:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_6_t:
+        Link6:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -176,17 +176,17 @@ Visualization Manager:
           Value: true
         floor:
           Value: false
-        link_1_s:
+        Link1:
           Value: false
-        link_2_l:
+        Link2:
           Value: false
-        link_3_u:
+        Link3:
           Value: false
-        link_4_r:
+        Link4:
           Value: false
-        link_5_b:
+        Link5:
           Value: false
-        link_6_t:
+        Link6:
           Value: false
         motoros2/r1/flange:
           Value: true
@@ -202,17 +202,17 @@ Visualization Manager:
           Value: true
         preview/floor:
           Value: false
-        preview/link_1_s:
+        preview/Link1:
           Value: false
-        preview/link_2_l:
+        preview/Link2:
           Value: false
-        preview/link_3_u:
+        preview/Link3:
           Value: false
-        preview/link_4_r:
+        preview/Link4:
           Value: false
-        preview/link_5_b:
+        preview/Link5:
           Value: false
-        preview/link_6_t:
+        preview/Link6:
           Value: false
         preview/sand_tcp:
           Value: true
@@ -244,12 +244,12 @@ Visualization Manager:
                   {}
                 cal_target_frame:
                   {}
-                link_1_s:
-                  link_2_l:
-                    link_3_u:
-                      link_4_r:
-                        link_5_b:
-                          link_6_t:
+                Link1:
+                  Link2:
+                    Link3:
+                      Link4:
+                        Link5:
+                          Link6:
                             flange:
                               camera_frame:
                                 {}
@@ -267,12 +267,12 @@ Visualization Manager:
                 preview/base_link:
                   preview/base:
                     {}
-                  preview/link_1_s:
-                    preview/link_2_l:
-                      preview/link_3_u:
-                        preview/link_4_r:
-                          preview/link_5_b:
-                            preview/link_6_t:
+                  preview/Link1:
+                    preview/Link2:
+                      preview/Link3:
+                        preview/Link4:
+                          preview/Link5:
+                            preview/Link6:
                               preview/flange:
                                 preview/camera_frame:
                                   {}
@@ -408,32 +408,32 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        link_1_s:
+        Link1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_2_l:
+        Link2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_3_u:
+        Link3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_4_r:
+        Link4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_5_b:
+        Link5:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        link_6_t:
+        Link6:
           Alpha: 1
           Show Axes: false
           Show Trail: false
