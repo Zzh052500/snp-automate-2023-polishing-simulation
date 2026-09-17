@@ -205,10 +205,24 @@ P1=0s，P2..P9 每步 1s，P10=13s（总 13s，原来 13.21s）
 
 全程最紧也只到关节限速的 13.5%，余量充足。**关节角一个都没动，所以 3.1 节的碰撞复核结论仍然成立。**
 
-> 复核方法：用 Python 完全复刻上面那两行 C++ 的 uint32 语义，
-> 对 `approach/process/departure` 分别重定基再检查单调性。改时间戳后建议重跑一次。
-> 后续只要轨迹里出现小数秒且相邻点 nanosec 会「回绕」，这个问题就会重现 ——
-> **保持整秒是最省事的规避方式。**
+**状态：已实机验证跑通**（2026-09-17 重跑，approach / process / departure 三段全部执行成功）。
+
+**改时间戳时务必复查。** 只要轨迹里出现小数秒、且相邻点的 nanosec 会「回绕」
+（例如 1.2 s 步长的小数部分是 `.5 → .7 → .9 → .1`），这个下溢立刻重现。
+复查方法就是把那两行 C++ 的 uint32 语义原样跑一遍：
+
+```python
+U32 = 2**32
+def sub(pt, st):                      # 复刻上游的偏移语义（nanosec 按 uint32 回绕）
+    return (pt[0] - st[0]) + ((pt[1] - st[1]) % U32) / 1e9
+
+# 分别以各段首点为基准偏移，再检查结果是否严格递增：
+#   approach  = points[0:2]
+#   process   = points[1:-1]
+#   departure = points[-2:]
+```
+
+**保持整秒是最省事的规避方式。**
 
 ### 4. 节拍调快
 
@@ -241,6 +255,26 @@ ros2 launch snp_automate_2023 start.launch.xml max_translational_vel:=0.25
 - ../urdf:/opt/snp_automate_2023/install/snp_automate_2023/share/snp_automate_2023/urdf:ro
 ```
 
+### 6. 碰撞复核脚本 `scripts/check_scan_traj.py`
+
+3.1 节那轮复核已经工具化了。它导出 URDF、算正运动学，把各连杆网格变换到 `base_link`
+系后两两求最小距离，三类检查：**自碰撞**（跳过相邻刚体对）、**环境**（连杆 vs 静止物体）、
+**工件**（连杆 vs `part_scan.ply`）。自包含，不依赖 `/tmp`。
+
+```bash
+python3 scripts/check_scan_traj.py                # 全网格分辨率 + 航点间 40 采样
+python3 scripts/check_scan_traj.py --list-links   # 先确认刚体分组对不对
+python3 scripts/check_scan_traj.py --samples 0    # 只查航点，不查插值（快）
+```
+
+常用参数：`--traj`（轨迹 YAML）、`--samples`（插值采样数，0 = 只查航点）、
+`--ppl`（每网格降采样点数，0 = 全分辨率）、`--min-self` / `--min-env`（告警阈值）。
+
+退出码：`0` 通过 / `1` 有碰撞 / `2` 运行错误。
+
+> 只会自动做**几何**检查。3.2 节那种时间戳问题它查不出来 —— 那属于格式/语义问题，
+> 不是碰撞问题。
+
 ---
 
 ## 关键文件对照
@@ -251,11 +285,13 @@ ros2 launch snp_automate_2023 start.launch.xml max_translational_vel:=0.25
 | `urdf/workcell.xacro` | 工作台 + 机器人实例装配 |
 | `urdf/ros2_control.xacro` | 仿真控制接口与关节限位 |
 | `config/workcell.srdf` | MoveIt 规划组定义 |
-| `config/scan_traj.yaml` | 扫描轨迹（关节空间，10 点） |
+| `config/scan_traj.yaml` | 扫描轨迹（关节空间，10 点）。**时间戳必须整秒**，见 3.2 |
 | `config/tpp.yaml` | 打磨工具路径参数（线/点间距、IK 超时） |
 | `launch/start.launch.xml` | 主入口：home 位、速度参数、各节点 |
 | `launch/test.launch.xml` | 机器人描述 / 关节状态 / RViz |
 | `docker/compose.sim.yml` | 容器挂载 |
+| `scripts/check_scan_traj.py` | 扫描轨迹碰撞复核，见第 6 节 |
+| `scripts/restart_demo.sh` | 一键重启仿真 |
 
 ---
 
@@ -277,6 +313,7 @@ ros2 launch snp_automate_2023 start.launch.xml max_translational_vel:=0.25
 
 | 项 | 说明 |
 |---|---|
+| **上游 nanosec 下溢未修** | `snp_application` 的 `ExtractApproachProcessDepartureTrajectories` 用 uint32 的 `nanosec` 做时间偏移，小数秒会回绕。本仓库靠「时间戳整秒」规避，上游代码没动，见 3.2 |
 | **相机标定还是 HC10 时代的** | `config/calibration.yaml` 里的 `camera_mount_to_camera` 未重新标定，只是沿用 |
 | **打磨头支架未换** | `urdf/workcell.xacro` 的末端执行器仍引用 `hc10_standoff.ply`，位置尺寸按 HC10 来的 |
 | **TCP `sand_tcp` 未标定** | 法兰到打磨头的变换仍是旧值 |
