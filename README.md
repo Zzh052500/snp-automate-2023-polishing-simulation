@@ -1,5 +1,7 @@
-![Uploading 微信图片_20260917175329_48_22.png…]()
+
 # SNP 打磨仿真 · 换成 Dobot CR12A 机械臂（cr12a 分支）
+<img width="1850" height="1016" alt="微信图片_20260917175329_48_22" src="https://github.com/user-attachments/assets/0c8562b4-e721-40b0-8458-de31e4bcd972" />
+
 
 在 [SNP Automate 2023](https://github.com/ros-industrial-consortium/snp_automate_2023) 打磨仿真里，
 **把机器人从安川 Motoman HC10DT 换成越疆 Dobot CR12A**，并在新构型下重算扫描轨迹、调快打磨节拍。
