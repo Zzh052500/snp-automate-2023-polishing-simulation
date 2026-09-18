@@ -1,3 +1,4 @@
+![Uploading 微信图片_20260917175329_48_22.png…]()
 # SNP 打磨仿真 · 换成 Dobot CR12A 机械臂（cr12a 分支）
 
 在 [SNP Automate 2023](https://github.com/ros-industrial-consortium/snp_automate_2023) 打磨仿真里，
