@@ -1,4 +1,7 @@
+<img width="1850" height="1053" alt="e70798c38288ccf201b2665d7d2950a2" src="https://github.com/user-attachments/assets/2cdf7c75-a30a-4c21-80c6-84c759924bc8" />
 # SNP 打磨仿真 · 球面座面工件适配（qiumian 分支）
+![Uploading 微信图片_20260918102128_49_22.png…]()
+
 
 在 [cr12a 分支](https://github.com/Zzh052500/snp-automate-2023-polishing-simulation/tree/cr12a) 的基础上，
 **将工件从平板座面替换为 main 分支的半圆/球面座面**，并完成 CR12A 机械臂的工作空间适配与碰撞配置优化。
