@@ -6,7 +6,7 @@
   <arg name="mesh_file" default="$(find-pkg-share snp_automate_2023)/meshes/part_scan.ply"/>
   <arg name="scan_trajectory_file" default="$(find-pkg-share snp_automate_2023)/config/scan_traj.yaml"/>
   <arg name="verbose" default="True"/>
-  <arg name="scan_disabled_contact_links" default="[table, base_link, floor]"/>
+  <arg name="scan_disabled_contact_links" default="[table, base_link, floor, scan]"/>
   <arg name="scan_reduced_contact_links" default="[sand_tcp]"/>
   <arg name="robot_description_file" default="$(find-pkg-share snp_automate_2023)/urdf/workcell.xacro"/>
   <arg name="robot_description" default="$(command 'xacro $(var robot_description_file) ros_distro:=$(env ROS_DISTRO)')"/>
