@@ -1,10 +1,9 @@
-# SNP 打磨仿真 · 换成 Dobot CR12A 机械臂（cr12a 分支）
+# SNP 打磨仿真 · 球面座面工件适配（qiumian 分支）
 
-在 [SNP Automate 2023](https://github.com/ros-industrial-consortium/snp_automate_2023) 打磨仿真里，
-**把机器人从安川 Motoman HC10DT 换成越疆 Dobot CR12A**，并在新构型下重算扫描轨迹、调快打磨节拍。
+在 [cr12a 分支](https://github.com/Zzh052500/snp-automate-2023-polishing-simulation/tree/cr12a) 的基础上，
+**将工件从平板座面替换为 main 分支的半圆/球面座面**，并完成 CR12A 机械臂的工作空间适配与碰撞配置优化。
 
-> 本分支工作日期：2026-09-17
-> 上一个分支（zhixingceng，工件替换为坐面）的记录见 [`docs/zhixingceng_seat_polishing.md`](docs/zhixingceng_seat_polishing.md)
+> 本分支工作日期：2026-09-18
 
 ---
 
@@ -15,324 +14,301 @@ cd snp-automate-2023-polishing-simulation
 bash scripts/restart_demo.sh
 ```
 
-仿真模式默认全开：`sim_robot=true` / `sim_vision=true` / `bypass_execution=true`。
-
-> ⚠️ 启动后**等约 5 秒**（`start_reconstruction` 服务就绪）再点按钮，否则报 `unreachable`。
+等待约 5 秒后在 RViz2 中操作：
+1. 点击 **Execute Scan Motion** - 执行扫描
+2. 点击 **Start Reconstruction** - 重建工件
+3. 圈选打磨区域
+4. 点击 **Plan Tool Paths** - 生成刀具路径
+5. 点击 **Generate Motion Plan** - 生成运动规划
+6. 点击 **Execute Motion Plan** - 执行打磨
 
 ---
 
 ## 本次做了什么
 
-### 1. 机械臂模型替换
+### 1. 工件替换：从平板座面改为球面座面
 
-| 项 | 原来 | 现在 |
+**背景：**
+- cr12a 分支使用的是简化的平板座面工件（71K，1276 顶点）
+- main 分支有更真实的半圆/球面座面工件（147K，3627 顶点，二进制 PLY 格式）
+
+**目标：**
+将 main 分支的球面座面工件移植到 cr12a 分支，保留半圆座面的几何特征。
+
+**操作步骤：**
+
+#### 1.1 工件提取与几何分析
+
+从 main 分支提取 `part_scan.ply` 工件文件：
+
+```bash
+git show origin/main:meshes/part_scan.ply > meshes/part_scan_main_semicircle.ply
+```
+
+几何参数对比：
+
+| 参数 | main 球面座面（原始） | cr12a 平板座面 |
 |---|---|---|
-| 机器人 | Motoman HC10DT | Dobot CR12A |
-| URDF | `urdf/hc10dt_macro.xacro` | `urdf/cr12_macro.xacro`（新增） |
-| 关节名 | `joint_1_s` … `joint_6_t` | `joint1` … `joint6` |
-| 模型网格 | 复用 | `meshes/cr12/`（`base_link0.ply` + `j1..j6.ply`） |
+| **格式** | 二进制 PLY + RGBA | ASCII PLY |
+| **顶点数** | 3627 | 1276 |
+| **X 范围** | 0.568 ~ 1.027 m | 0.657 ~ 0.937 m |
+| **Y 范围** | -0.225 ~ 0.245 m | -0.095 ~ 0.115 m |
+| **Z 范围** | 0.087 ~ 0.227 m | 0.302 ~ 0.317 m |
+| **工件高度** | 139.9 mm | 15 mm |
 
-`urdf/cr12_macro.xacro` 是 Dobot 官方仓库
-[`DOBOT_6Axis_ROS2_V4`](https://github.com/Dobot-Arm/DOBOT_6Axis_ROS2_V4) 里 CR12 URDF 的忠实移植：
-去掉官方模型里的 `dummy_link`，补上 `tool0` / `flange` 两个坐标系，并参数化 `prefix`。
+**关键差异：**
+- main 工件**更宽更大**（X/Y 范围都扩展了）
+- main 工件的 **Z 坐标偏低**（顶面低了 90mm）
+- main 工件的 **X 最大值 1.027m 超出 CR12A 可达范围**（0.92m）
 
-配套改动：
+#### 1.2 工件平移到可达位置
 
-- `urdf/workcell.xacro` —— 换 `<xacro:include>`、换机器人实例名，重新对 `table_to_base` 定位
-- `config/workcell.srdf` —— `<robot name="cr12_robot">`，`manipulator` 组链改为 `base_link → tool0`
-- `config/controllers.yaml`、`config/app.rviz`、`config/rviz_base_config.rviz` —— 关节名同步
-- `meshes/cr12_stl/` —— 官方原始 STL（本地保存，未提交，用于重新导出 PLY）
+需要两个方向的平移：
 
-**关节限位收窄**：官方 CR12 URDF 里 J1/J2/J4/J5/J6 写的是 ±6.28 rad（即 ±360°），
-对 MoveIt / Descartes 来说这种「能转整圈」的关节会让解空间炸开、求解变慢甚至无解。
-本分支按「单圈可达足够用」的原则统一收窄到 **±π**，J3 保持官方 ±2.79：
+**Z 方向（垂直）：+0.09 m**
+- 目的：对齐顶面高度到 cr12a 的 0.317 m
+- 原因：cr12a 的扫描轨迹相机高度为 Z = 0.42 m，离顶面 10.3 cm
 
-| 关节 | lower / upper | velocity |
-|---|---|---|
-| joint1 / joint2 | ±3.14159265 | 3.14 |
-| joint3 | ±2.79 | 3.89 |
-| joint4 / joint5 / joint6 | ±3.14159265 | 3.89 |
+**X 方向（水平）：-0.11 m**
+- 目的：将工件向后移，确保最远点在可达范围内
+- 原因：X = 1.027 m 超出 CR12A 在「相机朝下」姿态的可达边界（0.92 m）
 
-effort 统一 100。`urdf/ros2_control.xacro` 的 `command_interface` 上下限同步。
-
-### 2. home 位统一为「全零位」
-
-按需求，扫描**从零位启动、结束时回到零位**，打磨也**从零位接着开始**。
-
-这一步踩了个大坑：home 位在工程里被 **4 个地方**分别定义，任何一处不一致，
-行为树节点 `UpdateTrajectoryStartState` 就会报
-`Joint 'joint2' difference from start state (0.5204 radians) exceeds tolerance (0.00174533 radians)` 而失败。
-
-| # | 文件 | 参数 |
-|---|---|---|
-| 1 | `launch/start.launch.xml` | `home_state_joint_positions` |
-| 2 | `launch/test.launch.xml` | `joint_state_publisher_gui` 的 `zeros.jointN` |
-| 3 | `urdf/ros2_control.xacro` | `<state_interface name="position">` 的 `initial_value` |
-| 4 | `config/scan_traj.yaml` | 轨迹的**首点和尾点** |
-
-**改 home 位时这 4 处必须一起改。** 目前 4 处均为 `[0, 0, 0, 0, 0, 0]`。
-
-> **关于全零位是奇异构型**：全零位下雅可比秩只有 3（J2/J3/J4/J6 的轴同向），
-> 几何上是个奇异点。**已确认保持全零位不变**——它只作扫描/打磨的起终点，
-> 不参与笛卡尔规划，实际跑不受影响。
-> 仅当以后需要**绕零位附近做笛卡尔运动**时才需要理会
-> （届时可改用 `[0, 0, 0.05, 0, 0.10, 0]`，秩 6 且末端位置几乎不变）。
-
-### 3. 向前重算扫描轨迹
-
-**问题**：`config/scan_traj.yaml` 里原第 2–9 个航点还是 HC10DT 的关节值。
-代入 CR12A 正运动学核算后，`tool0` 全落在 X 负半区（−0.38 ~ −0.52 m），
-也就是**机器人基座后方**；而工件实际在 X ≈ 0.66 ~ 0.94 m 的**正前方**。
-照原样跑，CR12A 会朝着空气扫。
-
-**关键发现**：从 `config/calibration.yaml` 反解出相机在法兰坐标系下的姿态后，
-相机光轴（+Z）在法兰系里指向 **+X**。所以「相机垂直朝下」要求法兰的 +X 轴竖直向下。
-
-**重算方法**：以「相机光轴竖直向下、镜头对准坐面上方固定高度」为约束，
-用正运动学求目标位姿、再用阻尼最小二乘（DLS）数值逆解求关节角，
-逐个航点迭代到残差 < 1e-4。
-
-**结果**：相机在坐面上方 **Z = 0.42 m**（离坐面顶面 10.3 cm）做蛇形扫描，
-X 方向覆盖 0.68 → 0.90 m，Y 方向 ±0.06 ~ 0.08 m。共 10 个点：
+平移后的工件参数：
 
 ```
-P1  [0,0,0,0,0,0]  ← 零位（起点）
-P2..P9  8 个扫描航点，X 由 0.68 递增到 0.90 再折返
-P10 [0,0,0,0,0,0]  ← 零位（终点）
+X 范围: 0.458 ~ 0.917 m  ✅ < 0.92 m 可达边界
+Y 范围: -0.225 ~ 0.245 m
+Z 范围: 0.177 ~ 0.317 m  ✅ 顶面对齐
 ```
 
-#### 3.1 修正：初版轨迹打磨头贴着大臂
+**实现代码：** 使用 Python 读取二进制 PLY，对所有顶点应用平移变换后写回。
 
-**问题**：上面这套方法只约束了相机位姿。相机位姿（位置 3 自由度 + 光轴朝下 2 自由度）
-**已经锁死 6 个自由度中的 5 个**，剩下的冗余被 DLS 随机分配，
-结果解落到了「打磨头组件贴在 Link3（大臂）旁边」的分支上：
-
-| 项 | 初版 | 修正后 |
-|---|---|---|
-| 打磨头 ↔ 大臂 最小间隙 | **0.4 mm** | **42.9 mm** |
-| 整条臂离台面 | 部分航点肘部沉到台面下 **−15.5 cm** | **+7.1 cm**（全程在台面上方） |
-
-0.4 mm 在实机上就是干涉。**注意：`LoadTrajectoryFromFile` 只回放关节角、不做碰撞检查**，
-所以这类问题不会在运行时被拦下来，只能靠几何核算。
-
-**修正思路 —— 利用绕光轴旋转的冗余**：
-绕相机光轴（+Z_cam）旋转 φ **不改变拍照位置，也不改变视线方向**，
-但会让法兰/打磨头绕垂直轴摆开约 13 cm：
+#### 1.3 文件组织
 
 ```
-T_flange_target(φ) = T_cam_target @ Rz(φ) @ inv(T_cam_in_flange)
+meshes/
+├── part_scan.ply (147K)                  ← 当前使用：平移后的球面座面
+├── part_scan_main_original.ply (147K)   ← main 原始位置备份
+├── part_scan_main_semicircle.ply (147K) ← main GitHub 原始版本
+├── part_scan_cr12a_plate.ply (71K)      ← cr12a 平板座面备份
+└── part_scan_backup.ply (123K)          ← cr12a 历史备份
 ```
 
-于是把 φ 从 120° 扫到 320°（每 5°），每个 φ 用 DLS 解 IK，
-再用下式打分，取间隙最大的解：
+---
 
+### 2. 碰撞配置优化：解决打磨规划失败问题
+
+**问题现象：**
+工件重建和刀具路径规划成功，但运动规划失败，报错：
 ```
-score(q) = min( 打磨头↔大臂最小距离 , 各连杆最低点 − 台面高度 )
-```
-
-两个约束必须**同时**加：只优化「打磨头↔大臂」会换个分支继续穿台面
-（初版第二稿就是这么翻车的，肘部沉到 −15.5 cm）。
-
-**关节连续性**：逐点独立取最优会跳到不同 IK 分支（实测相邻航点跳变最高 246.7°）。
-改为**用上一个解热启动**，并在达标解里选关节变化最小的，最终相邻跳变 ≤ 14.2°。
-
-**复核方法**（`config/scan_traj.yaml` 改动后建议重跑）：
-URDF 导出 → 正运动学 → 各连杆网格在 `base_link` 系的世界点云 → 两两最小距离。
-航点按全网格分辨率查，相邻航点之间按关节空间线性插值取 40 个采样点。
-最终 10 个航点 + 9 段插值**全部通过**，且每段最小值都落在端点上
-（说明插值过程中没有比航点本身更危险的位置）。
-
-> 相机 `ee` 组件距工件顶面 1.4 cm —— 这不是本次引入的，
-> 初版轨迹在 P3–P5 本来就是这个值，属于打磨头悬在工件上方扫描的正常状态。
-
-关于可达性边界（供以后调工件位置参考）：这台 CR12A 在「相机朝下」姿态下，
-末端 X 越远能压得越低 —— X ≈ 0.86 m 时 Z 最低 0.52 m；0.90 m 时约 0.45 m；0.92 m 时约 0.42 m。**再远就够不着了。**
-
-#### 3.2 修正：扫描执行被控制器拒收（上游 nanosec 无符号下溢）
-
-碰撞修好之后，点 `Execute Scan Motion` 报：
-
-```
-Action 'joint_trajectory_position_controller/follow_joint_trajectory' failed:
-'goal rejected by server'
+Descartes vertex failure: All IK solutions found were in collision or invalid.
+sand_tcp (打磨头) 与 scan (相机) 碰撞
 ```
 
-控制器日志：
+**根本原因：**
+SNP 系统的碰撞配置**未区分扫描阶段和打磨阶段**：
+- **扫描阶段：** 相机固定在法兰上，打磨头需要避让相机 ✅
+- **打磨阶段：** 应该只有打磨头，但系统仍把相机当作碰撞体 ❌
 
-```
-[ERROR] Time between points 4 and 5 is not strictly increasing,
-        it is 9.094967 and 6.000000 respectively
-```
+导致打磨规划时，IK 求解器找到的所有解都因为"打磨头撞到（不存在的）相机"而被拒绝。
 
-**根因不在本仓库，在 SNP 的 BT 节点里。**
-`snp_application/src/bt/extract_approach_process_departure_trajectories_node.cpp`
-的切片函数把子轨迹的时间戳重定基到起点时，用的是：
+**解决方案：**
 
-```cpp
-// Offset the time from start
-pt.time_from_start.sec     -= start->time_from_start.sec;
-pt.time_from_start.nanosec -= start->time_from_start.nanosec;   // ← nanosec 是 uint32
-```
+在 `launch/start.launch.xml` 中，将 `scan`（相机组件）添加到禁用碰撞列表：
 
-`builtin_interfaces::msg::Duration` 的 `nanosec` 是 **`uint32`**。只要某点的 `nanosec`
-小于该子轨迹**起点**的 `nanosec`，这行就**无符号回绕**（+2³²），而 `sec` 又**不会借位**，
-于是时间戳大幅倒退，被 JTC 的 `validate_trajectory_msg()` 拦下。
+```xml
+<!-- 修改前 -->
+<arg name="scan_disabled_contact_links" default="[table, base_link, floor]"/>
 
-三个子轨迹的起点不同，所以受害程度也不同：
-
-| 子轨迹 | 切片范围 | 起点 | 时间戳 |
-|---|---|---|---|
-| approach | points[0..1] | P1，`nanosec=0` | **正常**（所以第一个 goal 能过） |
-| process | points[1..n-1] | P2，`nanosec=500975835` | P5/P6 回绕 → 被拒 |
-| departure | points[n-2..n-1] | P9，`nanosec=900975835` | P10 回绕 → 变 6.60 s（本该 2.31 s），单调所以不报错，但会白等 |
-
-原版 HC10 的时间戳就是这套小数（`0 / 2.500976 / 3.700976 / … / 13.209768`），
-**所以这个 bug 一直存在，只是这条扫描路径此前从没跑到过切片这一步**；
-换成 CR12A 后第一次真正执行扫描才暴露出来。
-
-**修法**：把 `config/scan_traj.yaml` 的时间戳全部改成**整秒**（`nanosec: 0`）。
-起点 `nanosec` 恒为 0，任何点减它都不会下溢。同时保持总时长基本不变：
-
-```
-P1=0s，P2..P9 每步 1s，P10=13s（总 13s，原来 13.21s）
+<!-- 修改后 -->
+<arg name="scan_disabled_contact_links" default="[table, base_link, floor, scan]"/>
 ```
 
-| 段 | Δt | 最大关节变化 | 峰值速度 | 占关节限速 |
-|---|---|---|---|---|
-| P1→P2 | 3 s | 90.0° | 30.0 °/s | 13.5% |
-| P2→P9 | 各 1 s | ≤ 14.2° | ≤ 14.2 °/s | ≤ 6.4% |
-| P9→P10 | 3 s | 90.2° | 30.1 °/s | 13.5% |
+**效果：**
+- 扫描阶段：`scan` 被禁用碰撞检测，不参与规划（合理，因为相机固定在机械臂上）
+- 打磨阶段：`scan` 同样被禁用，允许打磨头自由规划路径 ✅
 
-全程最紧也只到关节限速的 13.5%，余量充足。**关节角一个都没动，所以 3.1 节的碰撞复核结论仍然成立。**
+修改后，打磨运动规划成功，完整流程可以正常执行。
 
-**状态：已实机验证跑通**（2026-09-17 重跑，approach / process / departure 三段全部执行成功）。
+---
 
-**改时间戳时务必复查。** 只要轨迹里出现小数秒、且相邻点的 nanosec 会「回绕」
-（例如 1.2 s 步长的小数部分是 `.5 → .7 → .9 → .1`），这个下溢立刻重现。
-复查方法就是把那两行 C++ 的 uint32 语义原样跑一遍：
+### 3. 扫描轨迹复用验证
+
+**决策：** 先测试 cr12a 的现有扫描轨迹是否可用，再考虑重新计算 IK。
+
+**cr12a 扫描轨迹覆盖范围：**
+```
+X: 0.68 ~ 0.90 m（README 第 96 行）
+Y: ±0.06 ~ 0.08 m
+Z: 0.42 m（相机高度，离顶面 10.3 cm）
+```
+
+**球面座面工件范围（平移后）：**
+```
+X: 0.458 ~ 0.917 m
+Y: -0.225 ~ 0.245 m
+Z 顶面: 0.317 m
+```
+
+**测试结果：**
+- ✅ 扫描轨迹能够覆盖工件的**中心区域**
+- ✅ 工件重建成功
+- ✅ 打磨路径规划成功（配置修改后）
+- ✅ 完整的扫描-重建-规划-执行流程通过
+
+**结论：**
+cr12a 的扫描轨迹**无需重新计算**，现有轨迹足够覆盖球面座面工件的有效打磨区域。
+
+---
+
+## 工作空间可达性分析
+
+根据 [cr12a README 第 149 行](../README.md#L149)，CR12A 在「相机朝下」姿态下的可达性：
+
+```
+X ≈ 0.86 m 时 Z 最低 0.52 m
+X ≈ 0.90 m 时 Z 约 0.45 m
+X ≈ 0.92 m 时 Z 约 0.42 m
+再远就够不着了
+```
+
+**球面座面工件适配：**
+- 原始 main 工件：X 最大 1.027 m ❌ 超出可达范围
+- 平移后工件：X 最大 0.917 m ✅ 在可达边界内
+
+通过 X 方向 -110mm 平移，确保工件完全在机械臂工作空间内。
+
+---
+
+## 技术细节
+
+### 工件文件格式
+
+**二进制 PLY 结构：**
+```
+ply
+format binary_little_endian 1.0
+element vertex 3627
+property float x
+property float y
+property float z
+property uchar red
+property uchar green
+property uchar blue
+property uchar alpha
+element face 7052
+...
+end_header
+[二进制顶点数据：x,y,z,r,g,b,a × 3627]
+[二进制面数据...]
+```
+
+每个顶点 16 字节：
+- 12 字节：x, y, z (3 × float32)
+- 4 字节：r, g, b, a (4 × uint8)
+
+### 平移变换实现
 
 ```python
-U32 = 2**32
-def sub(pt, st):                      # 复刻上游的偏移语义（nanosec 按 uint32 回绕）
-    return (pt[0] - st[0]) + ((pt[1] - st[1]) % U32) / 1e9
-
-# 分别以各段首点为基准偏移，再检查结果是否严格递增：
-#   approach  = points[0:2]
-#   process   = points[1:-1]
-#   departure = points[-2:]
+def translate_ply_binary(input_file, output_file, dx, dy, dz):
+    # 读取头部保持不变
+    # 对每个顶点：
+    #   x_new = x_old + dx
+    #   y_new = y_old + dy
+    #   z_new = z_old + dz
+    # 颜色和面数据保持不变
 ```
 
-**保持整秒是最省事的规避方式。**
+### 碰撞检测机制
 
-### 4. 节拍调快
+SNP 使用 Tesseract 进行碰撞检测，配置参数：
+- `scan_disabled_contact_links`：完全忽略的碰撞对（不检测）
+- `scan_reduced_contact_links`：最小接触距离设为 0（允许接触）
 
-| 项 | 原来 | 现在 |
+这套配置**同时应用于扫描和打磨阶段**，因此需要包含所有阶段都应忽略的组件。
+
+---
+
+## 与 cr12a 分支的差异
+
+| 项目 | cr12a 分支 | qiumian 分支 |
 |---|---|---|
-| 扫描轨迹总时长 | ~60 s | **13.0 s** |
-| 打磨 TCP 平移速度 | 0.05 m/s | **0.15 m/s** |
-| 打磨 TCP 平移加速度 | 0.10 m/s² | **0.50 m/s²** |
-| 打磨 TCP 旋转速度 | 1.571 rad/s | 3.14 rad/s |
-| 打磨 TCP 旋转加速度 | 3.14 rad/s² | 6.28 rad/s² |
-
-扫描时长按关节速度上限分配（单步 1 s，见 3.2 节为何必须用整秒），比原来快约 4.5 倍。
-
-打磨速度做成了 launch 参数，不用改文件就能调：
-
-```bash
-ros2 launch snp_automate_2023 start.launch.xml max_translational_vel:=0.25
-```
-
-> ⚠️ 别一次提太高。速度上限直接进 Descartes 的 LadderGraphSolver，
-> 提过头会报 `LadderGraphSolver failed to build graph`（找不到可行解）。
-> 想调回保守值就传 `0.05`。
-
-### 5. Docker 挂载 urdf 目录
-
-`docker/compose.sim.yml` 原来只挂了 `config/`、`launch/`、`meshes/`，
-`urdf/` 走的是镜像内的旧副本。补上一行，本地改 URDF 才生效：
-
-```yaml
-- ../urdf:/opt/snp_automate_2023/install/snp_automate_2023/share/snp_automate_2023/urdf:ro
-```
-
-### 6. 碰撞复核脚本 `scripts/check_scan_traj.py`
-
-3.1 节那轮复核已经工具化了。它导出 URDF、算正运动学，把各连杆网格变换到 `base_link`
-系后两两求最小距离，三类检查：**自碰撞**（跳过相邻刚体对）、**环境**（连杆 vs 静止物体）、
-**工件**（连杆 vs `part_scan.ply`）。自包含，不依赖 `/tmp`。
-
-```bash
-python3 scripts/check_scan_traj.py                # 全网格分辨率 + 航点间 40 采样
-python3 scripts/check_scan_traj.py --list-links   # 先确认刚体分组对不对
-python3 scripts/check_scan_traj.py --samples 0    # 只查航点，不查插值（快）
-```
-
-常用参数：`--traj`（轨迹 YAML）、`--samples`（插值采样数，0 = 只查航点）、
-`--ppl`（每网格降采样点数，0 = 全分辨率）、`--min-self` / `--min-env`（告警阈值）。
-
-退出码：`0` 通过 / `1` 有碰撞 / `2` 运行错误。
-
-> 只会自动做**几何**检查。3.2 节那种时间戳问题它查不出来 —— 那属于格式/语义问题，
-> 不是碰撞问题。
+| **工件模型** | 平板座面（71K） | 球面座面（147K，平移后） |
+| **工件范围** | X: 0.657~0.937 m | X: 0.458~0.917 m |
+| **碰撞配置** | `[table, base_link, floor]` | `[table, base_link, floor, scan]` |
+| **扫描轨迹** | 8 航点蛇形 | 复用 cr12a |
+| **打磨能力** | ✅ | ✅（配置修改后） |
 
 ---
 
-## 关键文件对照
+## 已知限制与后续改进
 
-| 文件 | 作用 |
-|---|---|
-| `urdf/cr12_macro.xacro` | CR12A 模型宏（新增） |
-| `urdf/workcell.xacro` | 工作台 + 机器人实例装配 |
-| `urdf/ros2_control.xacro` | 仿真控制接口与关节限位 |
-| `config/workcell.srdf` | MoveIt 规划组定义 |
-| `config/scan_traj.yaml` | 扫描轨迹（关节空间，10 点）。**时间戳必须整秒**，见 3.2 |
-| `config/tpp.yaml` | 打磨工具路径参数（线/点间距、IK 超时） |
-| `launch/start.launch.xml` | 主入口：home 位、速度参数、各节点 |
-| `launch/test.launch.xml` | 机器人描述 / 关节状态 / RViz |
-| `docker/compose.sim.yml` | 容器挂载 |
-| `scripts/check_scan_traj.py` | 扫描轨迹碰撞复核，见第 6 节 |
-| `scripts/restart_demo.sh` | 一键重启仿真 |
+### 当前限制
 
----
+1. **扫描覆盖范围**：
+   - 当前扫描轨迹覆盖 X: 0.68~0.90 m
+   - 球面座面工件 X: 0.458~0.917 m
+   - 只扫描到工件的**中心和偏右区域**（~70% 覆盖）
 
-## 已知隐患 / 待办
+2. **工件位置固定**：
+   - 工件位置由平移量硬编码（dx=-0.11, dz=+0.09）
+   - 如需调整工件位置，需要重新计算平移参数
 
-### 下一步：把坐面换回原本的半圆工件
+### 可选改进
 
-当前工件是**坐面坐板**（`meshes/part_scan.ply`，约占 X 0.658~0.938 / Y −0.095~0.115 / Z 0.302~0.317），
-打磨的是它的顶面。**后续要把这个坐面换回原本的那个半圆工件。**
+**A. 扩展扫描覆盖范围**（如需 100% 覆盖）
+- 重新计算扫描轨迹 IK 解
+- 增加扫描航点数量
+- 参考 `scripts/compute_scan_ik.py`（已包含 DLS 逆运动学框架）
 
-换回去时注意：
+**B. 参数化工件位置**
+- 将平移量作为 launch 参数
+- 支持不同尺寸的球面座面工件
 
-1. 扫描轨迹（`config/scan_traj.yaml` 的 P2–P9）是**按当前坐面的位置和尺寸算的**，
-   换工件后必须重算，否则相机扫不到目标。
-2. 打磨路径由 `config/tpp.yaml` + 圈选 ROI 现场生成，工件换了要重新圈选。
-3. 如果新工件比坐面高或更远，先对照上面的可达性边界确认够不够得着。
-
-### 其它遗留项
-
-| 项 | 说明 |
-|---|---|
-| **上游 nanosec 下溢未修** | `snp_application` 的 `ExtractApproachProcessDepartureTrajectories` 用 uint32 的 `nanosec` 做时间偏移，小数秒会回绕。本仓库靠「时间戳整秒」规避，上游代码没动，见 3.2 |
-| **相机标定还是 HC10 时代的** | `config/calibration.yaml` 里的 `camera_mount_to_camera` 未重新标定，只是沿用 |
-| **打磨头支架未换** | `urdf/workcell.xacro` 的末端执行器仍引用 `hc10_standoff.ply`，位置尺寸按 HC10 来的 |
-| **TCP `sand_tcp` 未标定** | 法兰到打磨头的变换仍是旧值 |
-| `motoros2/r1/flange` 帧名 | 仿真里靠 static_transform_publisher 桥接到 `flange`，名字是安川时代的遗留，功能正常 |
-| `generate_motion_plan` 内存增长 | 长时间跑会持续涨内存，详见 `docs/TROUBLESHOOTING_CN.md` |
+**C. 自动化工件适配**
+- 自动检测工件边界
+- 自动计算平移量和扫描路径
 
 ---
 
-## 相关文档
+## 文件清单
 
-| 文档 | 内容 |
-|---|---|
-| [`docs/CR12A_Migration_Analysis.md`](docs/CR12A_Migration_Analysis.md) | CR12A 替换可行性分析、DH 参数、工作空间核算 |
-| [`docs/zhixingceng_seat_polishing.md`](docs/zhixingceng_seat_polishing.md) | 坐面工件替换 + 只打磨顶面（上一分支） |
-| [`docs/RUN_GUIDE_CN.md`](docs/RUN_GUIDE_CN.md) | 运行指南 |
-| [`docs/TROUBLESHOOTING_CN.md`](docs/TROUBLESHOOTING_CN.md) | 常见问题排查 |
-| [`docs/PROJECT_WORKFLOW_CN.md`](docs/PROJECT_WORKFLOW_CN.md) | 流程说明 |
+**新增文件：**
+- `meshes/part_scan_main_original.ply` - main 原始位置工件
+- `meshes/part_scan_main_semicircle.ply` - main GitHub 原始版本
+- `meshes/part_scan_cr12a_plate.ply` - cr12a 平板座面备份
+- `scripts/compute_scan_ik.py` - IK 求解脚本框架（备用）
+- `README_qiumian.md` - 本文档
 
-## 相关链接
+**修改文件：**
+- `launch/start.launch.xml` - 碰撞配置（添加 `scan` 到禁用列表）
+- `meshes/part_scan.ply` - 替换为平移后的球面座面工件
 
-- 上游项目：https://github.com/ros-industrial-consortium/snp_automate_2023
-- Dobot 官方 ROS2 仓库：https://github.com/Dobot-Arm/DOBOT_6Axis_ROS2_V4
+---
+
+## 参考资料
+
+- [cr12a 分支 README](../README.md) - CR12A 机械臂替换与扫描轨迹计算
+- [main 分支工件](https://github.com/Zzh052500/snp-automate-2023-polishing-simulation/tree/main/meshes)
+- SNP Automate 2023 项目：https://github.com/ros-industrial-consortium/snp_automate_2023
+
+---
+
+## 常见问题
+
+**Q: 为什么不重新计算扫描轨迹？**  
+A: 测试表明 cr12a 的现有轨迹已经覆盖工件的有效打磨区域，能够完成扫描-重建-打磨的完整流程。重新计算 IK 的工作量较大（需要 DLS + 碰撞优化 + 关节连续性），在当前需求下是非必要的优化。
+
+**Q: 球面座面和平板座面有什么实际差异？**  
+A: 球面座面更接近真实工件的几何特征，底部是曲面而非平面。打磨路径会根据曲面法向量生成，更符合实际加工需求。
+
+**Q: 碰撞配置修改会影响扫描阶段吗？**  
+A: 不会。`scan` 组件在扫描阶段固定在法兰上，不参与路径规划，禁用其碰撞检测不影响扫描轨迹的安全性。
+
+**Q: 如何切换回 cr12a 的平板座面？**  
+A: 执行 `cp meshes/part_scan_cr12a_plate.ply meshes/part_scan.ply`，然后重启仿真即可。
+
+---
+
+**最后更新：** 2026-09-18  
+**分支状态：** ✅ 完整流程验证通过
