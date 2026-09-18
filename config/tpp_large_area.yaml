@@ -17,23 +17,23 @@ tool_path_planner:
     service_name: get_located_vector
   origin_generator:
     name: Centroid
-  # 线间距：调整到 4cm（配合降速，提高精度）
-  # 效果：20cm 宽度有 5 条线
-  line_spacing: 0.04
-  # 点间距：调整到 4cm
-  point_spacing: 0.04
-  # 最小孔洞尺寸：忽略小于 12cm 的孔洞
-  min_hole_size: 0.12
-  # 最小线段长度：过滤短于 12cm 的线段
-  min_segment_size: 0.12
+  # 线间距：从 3cm 增大到 5cm
+  # 效果：20cm 宽度从 7 条线减少到 4 条线
+  line_spacing: 0.05
+  # 点间距：从 3cm 增大到 5cm（会被 UniformSpacing 进一步调整）
+  point_spacing: 0.05
+  # 最小孔洞尺寸：忽略小于 15cm 的孔洞
+  min_hole_size: 0.15
+  # 最小线段长度：过滤短于 15cm 的线段
+  min_segment_size: 0.15
   bidirectional: true
 
 tool_path_modifiers:
   - name: MovingAverageOrientationSmoothing
     window_size: 5
   - name: UniformSpacing
-    # 最终点间距：调整到 2.5cm（配合降速，提高精度）
-    # 效果：20cm 长度有 8 个点
+    # 最终点间距：从 1.5cm 增大到 2.5cm
+    # 效果：20cm 长度从 13 个点减少到 8 个点
     point_spacing: 0.025
     spline_degree: 2
     include_endpoints: false

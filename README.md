@@ -289,11 +289,23 @@ SNP 使用 Tesseract 进行碰撞检测，配置参数：
 
 ---
 
-## 参考资料
+## 参考资料与相关文档
 
-- [cr12a 分支 README](../README.md) - CR12A 机械臂替换与扫描轨迹计算
-- [main 分支工件](https://github.com/Zzh052500/snp-automate-2023-polishing-simulation/tree/main/meshes)
+### 项目相关
+- [cr12a 分支 README](../README.md) - CR12A 机械臂替换与扫描轨迹计算  
+- [main 分支工件](https://github.com/Zzh052500/snp-automate-2023-polishing-simulation/tree/main/meshes)  
 - SNP Automate 2023 项目：https://github.com/ros-industrial-consortium/snp_automate_2023
+
+### 技术文档
+
+| 文档 | 内容 |
+|---|---|
+| [`docs/CR12A_Migration_Analysis.md`](docs/CR12A_Migration_Analysis.md) | CR12A 替换可行性分析、DH 参数、工作空间核算 |
+| [`docs/Polish_Planning_Optimization.md`](docs/Polish_Planning_Optimization.md) | **打磨路径规划优化指南**（大面积区域规划失败的解决方案） |
+| [`docs/zhixingceng_seat_polishing.md`](docs/zhixingceng_seat_polishing.md) | 坐面工件替换 + 只打磨顶面（上一分支） |
+| [`docs/RUN_GUIDE_CN.md`](docs/RUN_GUIDE_CN.md) | 运行指南 |
+| [`docs/TROUBLESHOOTING_CN.md`](docs/TROUBLESHOOTING_CN.md) | 常见问题排查 |
+| [`docs/PROJECT_WORKFLOW_CN.md`](docs/PROJECT_WORKFLOW_CN.md) | 流程说明 |
 
 ---
 
