@@ -16,10 +16,10 @@
        调快:   ros2 launch ... max_translational_vel:=0.25
        调回保守: ... max_translational_vel:=0.05
        注意: 提得过高可能让 Descartes 求解失败（LadderGraphSolver failed to build graph） -->
-  <arg name="max_translational_vel" default="0.08" description="TCP 平移速度上限 (m/s)，降低以提高规划成功率"/>
-  <arg name="max_translational_acc" default="0.30" description="TCP 平移加速度上限 (m/s^2)，降低以提高规划成功率"/>
-  <arg name="max_rotational_vel" default="2.00" description="TCP 旋转速度上限 (rad/s)，降低以提高规划成功率"/>
-  <arg name="max_rotational_acc" default="4.00" description="TCP 旋转加速度上限 (rad/s^2)，降低以提高规划成功率"/>
+  <arg name="max_translational_vel" default="0.05" description="TCP 平移速度上限 (m/s)，降低以提高规划成功率"/>
+  <arg name="max_translational_acc" default="0.20" description="TCP 平移加速度上限 (m/s^2)，降低以提高规划成功率"/>
+  <arg name="max_rotational_vel" default="1.50" description="TCP 旋转速度上限 (rad/s)，降低以提高规划成功率"/>
+  <arg name="max_rotational_acc" default="3.00" description="TCP 旋转加速度上限 (rad/s^2)，降低以提高规划成功率"/>
   <!-- Set the default name of the follow joint trajectory action depending on whether the robot is simulated (i.e., ros2_control) or real hardware is being used -->
   <arg name="follow_joint_trajectory_action" default="joint_trajectory_position_controller/follow_joint_trajectory" if="$(var sim_robot)"/>
   <arg name="follow_joint_trajectory_action" default="joint_trajectory_controller/follow_joint_trajectory" unless="$(var sim_robot)"/>

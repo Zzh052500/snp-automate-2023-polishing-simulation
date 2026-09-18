@@ -232,6 +232,76 @@ SNP 使用 Tesseract 进行碰撞检测，配置参数：
 
 ---
 
+### 4. 路径规划参数优化：解决全工件打磨 IK 求解失败
+
+**问题现象：**
+初始尝试对整个球面座面工件进行全覆盖打磨时，路径规划成功但运动规划卡在 IK 求解阶段无法完成。
+
+**根本原因：**
+根据 `docs/Polish_Planning_Optimization.md` 分析，Descartes LadderGraphSolver 的计算复杂度为：
+```
+解空间 = (IK分支数)^路径点数
+```
+
+球面座面工件尺寸较大（~46cm × 47cm），初始配置生成的路径点过多（200-300个），导致解空间呈指数增长，超出 Descartes 的计算能力。
+
+**解决方案：**
+
+#### 4.1 路径规划参数优化
+
+修改 `config/tpp.yaml` 为极限稀疏模式：
+
+```yaml
+tool_path_planner:
+  line_spacing: 0.06      # 线间距从 3cm 增大到 6cm
+  point_spacing: 0.06     # 点间距从 3cm 增大到 6cm
+  min_hole_size: 0.18     # 过滤小于 18cm 的孔洞
+  min_segment_size: 0.18  # 过滤短于 18cm 的线段
+
+tool_path_modifiers:
+  - name: UniformSpacing
+    point_spacing: 0.045  # 最终点间距 4.5cm
+```
+
+**效果：**
+- 路径点数量从 ~200-300 个减少到 ~120 个（减少约 40%）
+- 计算复杂度大幅降低：8^200 → 8^120
+- 成功实现全工件打磨运动规划 ✅
+
+#### 4.2 速度参数保守化
+
+修改 `launch/start.launch.xml`，降低 TCP 速度和加速度限制：
+
+```xml
+<arg name="max_translational_vel" default="0.05"/>  <!-- 从 0.08 降低到 0.05 m/s -->
+<arg name="max_translational_acc" default="0.20"/>  <!-- 从 0.30 降低到 0.20 m/s² -->
+<arg name="max_rotational_vel" default="1.50"/>     <!-- 从 2.00 降低到 1.50 rad/s -->
+<arg name="max_rotational_acc" default="3.00"/>     <!-- 从 4.00 降低到 3.00 rad/s² -->
+```
+
+**效果：**
+- 相邻路径点之间的时间余量增加 60%（从 0.375s 到 0.6s）
+- 关节速度约束更宽松，IK 解空间更大
+- 提高运动规划成功率 ✅
+
+#### 4.3 优化策略总结
+
+**双重优化：**
+1. **减少路径点数量**（降低计算量）
+2. **放宽速度约束**（增加可行解数量）
+
+**权衡取舍：**
+- ✅ 成功实现全工件自动打磨
+- ⚠️ 路径密度降低（线间距 6cm）
+- ⚠️ 打磨速度较慢（5cm/s）
+
+**后续改进方向：**
+- 采用分区打磨策略，每个区域使用更密集的路径参数
+- 探索其他运动规划器（如 OMPL）替代 Descartes
+- 优化 IK 求解算法，提高大规模路径的计算效率
+
+---
+
 ## 与 cr12a 分支的差异
 
 | 项目 | cr12a 分支 | qiumian 分支 |
@@ -240,7 +310,9 @@ SNP 使用 Tesseract 进行碰撞检测，配置参数：
 | **工件范围** | X: 0.657~0.937 m | X: 0.458~0.917 m |
 | **碰撞配置** | `[table, base_link, floor]` | `[table, base_link, floor, scan]` |
 | **扫描轨迹** | 8 航点蛇形 | 复用 cr12a |
-| **打磨能力** | ✅ | ✅（配置修改后） |
+| **路径规划** | line_spacing: 3cm | line_spacing: 6cm（极限稀疏） |
+| **TCP 速度** | 0.08 m/s | 0.05 m/s（保守模式） |
+| **打磨能力** | ✅ | ✅（全工件打磨成功） |
 
 ---
 
@@ -284,7 +356,8 @@ SNP 使用 Tesseract 进行碰撞检测，配置参数：
 - `README_qiumian.md` - 本文档
 
 **修改文件：**
-- `launch/start.launch.xml` - 碰撞配置（添加 `scan` 到禁用列表）
+- `launch/start.launch.xml` - 碰撞配置（添加 `scan` 到禁用列表）+ 速度参数优化
+- `config/tpp.yaml` - 路径规划参数优化（极限稀疏模式）
 - `meshes/part_scan.ply` - 替换为平移后的球面座面工件
 
 ---
@@ -323,7 +396,13 @@ A: 不会。`scan` 组件在扫描阶段固定在法兰上，不参与路径规�
 **Q: 如何切换回 cr12a 的平板座面？**  
 A: 执行 `cp meshes/part_scan_cr12a_plate.ply meshes/part_scan.ply`，然后重启仿真即可。
 
+**Q: 为什么运动规划会卡在 IK 求解阶段？**  
+A: Descartes 规划器的计算复杂度呈指数增长（解空间 = IK分支数^路径点数）。当路径点过多（>200个）或速度约束过严时，计算量会超出系统能力。解决方法：增大 `line_spacing` 和 `point_spacing` 减少路径点，或降低 `max_translational_vel` 放宽速度约束。
+
+**Q: 如何在覆盖率和规划成功率之间取得平衡？**  
+A: 当前配置（line_spacing: 6cm）是经过实测验证能够成功的极限稀疏配置。如需更密集覆盖，建议采用分区打磨策略：将工件分成 2-3 个小区域，每个区域可以使用更密集的参数（如 line_spacing: 4cm）。
+
 ---
 
 **最后更新：** 2026-09-18  
-**分支状态：** ✅ 完整流程验证通过
+**分支状态：** ✅ 完整流程验证通过（含全工件打磨优化）

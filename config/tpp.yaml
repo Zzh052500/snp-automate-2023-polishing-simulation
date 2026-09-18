@@ -1,6 +1,6 @@
-# 大面积打磨路径规划配置（优化版）
-# 适用于 20cm × 20cm 或更大的打磨区域
-# 通过增大线/点间距减少路径点数，提高规划成功率
+# 极限稀疏模式：确保 Descartes 能完成计算
+# 适用于大面积全工件打磨（牺牲覆盖密度换取可行性）
+# 参考：docs/Polish_Planning_Optimization.md
 
 mesh_modifiers:
   - name: ROISelection
@@ -17,24 +17,24 @@ tool_path_planner:
     service_name: get_located_vector
   origin_generator:
     name: Centroid
-  # 线间距：调整到 4cm（配合降速，提高精度）
-  # 效果：20cm 宽度有 5 条线
-  line_spacing: 0.04
-  # 点间距：调整到 4cm
-  point_spacing: 0.04
-  # 最小孔洞尺寸：忽略小于 12cm 的孔洞
-  min_hole_size: 0.12
-  # 最小线段长度：过滤短于 12cm 的线段
-  min_segment_size: 0.12
+  # 线间距：6cm（文档推荐的大面积配置）
+  # 效果：40cm 宽度约 6-7 条线
+  line_spacing: 0.06
+  # 点间距：6cm（初始采样）
+  point_spacing: 0.06
+  # 最小孔洞尺寸：忽略小于 18cm 的孔洞
+  min_hole_size: 0.18
+  # 最小线段长度：过滤短于 18cm 的线段
+  min_segment_size: 0.18
   bidirectional: true
 
 tool_path_modifiers:
   - name: MovingAverageOrientationSmoothing
     window_size: 5
   - name: UniformSpacing
-    # 最终点间距：调整到 2.5cm（配合降速，提高精度）
-    # 效果：20cm 长度有 8 个点
-    point_spacing: 0.025
+    # 最终点间距：4.5cm（文档推荐值 2.5cm 的稍微保守版）
+    # 效果：40cm 长度约 8-9 个点
+    point_spacing: 0.045
     spline_degree: 2
     include_endpoints: false
   - name: SnakeOrganization
